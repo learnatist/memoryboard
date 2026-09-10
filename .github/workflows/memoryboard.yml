@@ -1,0 +1,53 @@
+name: Memoryboard daily poster
+
+on:
+  schedule:
+    # 14:05 UTC = 7:05 AM Phoenix (Arizona, no DST). GitHub cron is UTC only.
+    # Note: GitHub's scheduler can lag 5-15 min or, rarely, skip a run under
+    # load. Fine for this board. You can also trigger manually below.
+    - cron: "5 14 * * *"
+  workflow_dispatch: {}   # lets you run it on demand from the Actions tab
+
+# Allow the job to commit posted_log.json back to the repo (dedup memory).
+permissions:
+  contents: write
+
+concurrency:
+  group: memoryboard-poster
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily poster
+        env:
+          MB_ANON_KEY: ${{ secrets.MB_ANON_KEY }}
+          MB_REFRESH_TOKEN: ${{ secrets.MB_REFRESH_TOKEN }}
+          MB_ALERT_WEBHOOK: ${{ secrets.MB_ALERT_WEBHOOK }}
+        run: python daily_run.py
+
+      - name: Persist post log
+        if: always()   # commit the log even if a post failed, so partial
+                       # progress is remembered and not repeated tomorrow
+        run: |
+          if [ -n "$(git status --porcelain posted_log.json)" ]; then
+            git config user.name  "memoryboard-bot"
+            git config user.email "actions@users.noreply.github.com"
+            git add posted_log.json
+            git commit -m "Update posted_log.json [skip ci]"
+            git push
+          else
+            echo "No changes to posted_log.json"
+          fi
