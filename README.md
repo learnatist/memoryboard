@@ -1,69 +1,39 @@
-# Memoryboard Daily Poster
+# Memoryboard daily poster
 
-Auto-posts to George & Ann Fisher's Memoryboard (board 21689) every morning:
-D-backs updates, weather *only when dramatic*, plus rolling 7-day queues of
-jokes, quotes, "Today is…", and "On this day" — so 7 of each are always queued
-for review, and any can be deleted in the app's Upcoming tab before they run.
+Automated daily content for George & Ann Fisher's Memoryboard (board 21689):
+date, a joke, a quote, an "on this day" fact, a Diamondbacks line, a Seahawks
+line (game days), and weather (only when dramatic). One post per category per
+day; it works around posts the family makes by hand.
 
-Runs free on **GitHub Actions** (a daily scheduled workflow). No server.
+## Current implementation (v2 — LIVE)
 
-## Files
-- `mb_client.py`  — Supabase auth + post/read for the Memoryboard backend
-- `content.py`    — content banks + live D-backs (MLB) and weather (Open-Meteo)
-- `daily_run.py`  — the daily job: posts today's data, tops up the 7-day queues
-- `.github/workflows/memoryboard.yml` — the scheduler
-- `posted_log.json` — created on first run; committed back so the job remembers
-  what it already posted (dedup memory across runs)
+TypeScript sidecar running inside the **Performatist** app on Replit. Source of
+truth is that Replit project; this folder is the version-controlled copy.
 
-## One-time setup
+- `server/memoryboard/client.ts` — Supabase auth + post/read; computes the
+  board's required text size (sending 0 renders text screen-fillingly huge).
+- `server/memoryboard/content.ts` — content banks + generators. ~100 jokes,
+  ~62 verified quotes, both selected with a 45-day no-repeat window so nothing
+  recycles on a fixed cycle. "On this day" pulls Wikipedia's curated *selected*
+  feed (tone-filtered to skip war/disaster items) with a verified fallback bank.
+  Live D-backs (MLB) and Seahawks (ESPN); weather via Open-Meteo.
+- `server/memoryboard/dailyRun.ts` — one daily pass (~1:05am Pacific). Posts
+  only that day; dedups one-per-category-per-day and avoids recent jokes/quotes.
+- `server/memoryboard/route.ts` — Express handler at `/tasks/memoryboard`,
+  guarded by `?key=<TASK_SECRET>`. Returns 200 with a JSON summary, or 500 on
+  failure so an external monitor can alert.
 
-1. **Create a GitHub repo** (private is fine) and push these files, keeping the
-   folder structure (`.github/workflows/memoryboard.yml` must stay at that path).
+### Trigger & monitor
+cron-job.org GETs `https://www.performatist.com/tasks/memoryboard?key=<TASK_SECRET>`
+daily at 1:05am Pacific, with "notify on failure" enabled.
 
-2. **Add repository secrets**: repo → Settings → Secrets and variables →
-   Actions → *New repository secret*. Add:
-   - `MB_ANON_KEY` — the public Supabase anon key (`eyJ…role:anon…`). Safe to store.
-   - `MB_REFRESH_TOKEN` — your Memoryboard refresh token (the real secret).
-     Get it: app.memoryboard.com → DevTools → Application → Local Storage →
-     `app.memoryboard.com` → the `sb-…-auth-token` key → copy the
-     `"refresh_token"` value.
-   - `MB_ALERT_WEBHOOK` *(optional)* — a Slack/Discord webhook URL to ping on
-     failure. Omit if you don't want alerts.
+### Secrets (set in Replit, not here)
+`MB_ANON_KEY`, `MB_EMAIL`, `MB_PASSWORD`, `TASK_SECRET`, and `MB_TIMEZONE`
+(`America/Los_Angeles`; switch to `America/Phoenix` when the family moves).
 
-3. **Test it now**: repo → Actions tab → "Memoryboard daily poster" →
-   *Run workflow*. Watch the log; the first run queues ~29 posts (7 days ×
-   4 categories, plus today's D-backs). Check the app's Upcoming tab.
+## Deprecated implementation (v1 — RETIRED)
 
-## Schedule
-Already set: **14:05 UTC daily = 7:05 AM Phoenix** (Arizona has no DST).
-Change the `cron:` line in the workflow to move it. GitHub's scheduler can lag
-5–15 min or, rarely, skip a run — acceptable here. The `workflow_dispatch`
-trigger lets you run it by hand any time from the Actions tab.
-
-## How dedup works
-Two layers, so it never double-posts:
-1. `posted_log.json` — committed back to the repo after each run; the memory of
-   every (date, category) already posted.
-2. Live-queue check — reads current board posts and skips anything already
-   there. This is the backstop if the log is ever empty.
-
-## Content limits (baked in)
-Data posts ≤25 chars; jokes/quotes/history ≤35; one fact per post; sentence
-case — tuned for readability with PSP. Weather posts appear only on drama days
-(snow, storms, wind ≥30mph, rain ≥70%, Phoenix ≥108°F, Minneapolis ≤20°F).
-
-## Editing content
-All banks are in `content.py` (JOKES, QUOTES, HISTORY). Add freely; keep
-jokes/quotes ≤35 chars. HISTORY is keyed by (month, day).
-
-## If it breaks
-Almost always the refresh token expired or rotated. Grab a fresh one (same
-path as setup) and update the `MB_REFRESH_TOKEN` secret. Memoryboard is a
-third-party app with no official API, so an app update could change the
-endpoint; the failure alert (if configured) tells you when.
-
-## Note on text-only posts
-`post_text` sends the message as text with an empty image URL. The captured
-payload showed the board stores text even when an image exists, so this should
-render. If a first-run post doesn't appear on the physical board, the board may
-require the rendered PNG — say so and add the image-render/upload step.
+The root-level Python files (`mb_client.py`, `content.py`, `daily_run.py`,
+`requirements.txt`, `posted_log.json`) and `.github/workflows/memoryboard.yml`
+were the original GitHub Actions version. **That workflow is disabled and no
+longer runs.** The files are kept only for history and can be deleted.
