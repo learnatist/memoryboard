@@ -370,12 +370,35 @@ function teamLabel(team: any): string {
   return e ? `${e} ${name}` : name;
 }
 
+// Major U.S. national networks that actually carry postseason games, in the
+// order a casual viewer would want them (free over-the-air first, then cable).
+// Spanish-language simulcasts and streaming-only feeds are excluded, and the
+// broadcasts(all) feed often lists several per game, so we pick the single
+// most prominent and drop the rest.
+const NET_PRIORITY = ["FOX", "ABC", "ESPN", "TBS", "FS1", "truTV", "MLB Network"];
+function classifyNet(s: string): string | null {
+  const t = s.toLowerCase();
+  if (/deportes|español|espanol/.test(t)) return null; // Spanish feeds
+  if (/fs1|fox sports 1/.test(t)) return "FS1";
+  if (/\bfox\b/.test(t)) return "FOX";
+  if (/\babc\b/.test(t)) return "ABC";
+  if (/espn/.test(t)) return "ESPN";
+  if (/\btbs\b/.test(t)) return "TBS";
+  if (/trutv/.test(t)) return "truTV";
+  if (/mlb ?network|mlbn/.test(t)) return "MLB Network";
+  return null;
+}
 function networkOf(g: any): string {
   const bc = (g.broadcasts || []) as any[];
   const tv = bc.filter((b) => /tv/i.test(String(b.type || b.mediaType || "")));
-  const pick = tv.find((b) => b.isNational) || tv[0] || bc[0];
-  const n = pick && (pick.name || pick.callSign);
-  return n ? String(n) : "";
+  let best: string | null = null, bestRank = Infinity;
+  for (const b of (tv.length ? tv : bc)) {
+    const net = classifyNet(String(b.name || b.callSign || ""));
+    if (net == null) continue;
+    const rank = NET_PRIORITY.indexOf(net);
+    if (rank >= 0 && rank < bestRank) { best = net; bestRank = rank; }
+  }
+  return best || "";
 }
 
 export async function playoffsTodayPost(today: string, tz: string): Promise<string | null> {
