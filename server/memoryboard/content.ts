@@ -253,23 +253,38 @@ export function quoteFor(dateStr: string, avoid?: Set<string>): string {
 
 const GRIM = /\b(kill|killed|dead|death|died|dies|massacre|slaughter|bomb|bombed|bombing|war|battle|attack|assassinat|shot|murder|execut|genocide|terror|hijack|crash|disaster|earthquake|hurricane|flood|famine|plague|epidemic|pandemic|riot|invasion|invaded|nazi|holocaust|slave|slaver|shooting|explosion|wreck|sank|sink|drown|tragedy|victim|casualt)/i;
 
+// Recognizability scoring: prefer mainstream, broadly-known events over the
+// obscure political/administrative entries the raw feed is full of.
+const WONK = /\b(treaty|act of|parliament|diet of|duchy|province|annex|by-?election|synod|papal bull|edict|dynast|principalit|referendum|constituen|legislat|ratif|archduke|holy roman|caliph|sultanate|viceroy|monarch|succession|proclaimed (king|emperor)|accession|abdicat|regent)\b/i;
+const MAINSTREAM = /\b(first|invent|discover|found(ed|s)?|patent|premier|debut|released|opened|open(s|ed)|record|champion|world series|super bowl|olympic|moon|space|satellite|rocket|flight|flew|president|signed into law|publish|born|crowned|vaccine|telephone|telegraph|automobile|airplane|television|radio|computer|internet|bridge|skyscraper|statue|national park|wright|disney|beatles|elvis|lincoln|washington|franklin|edison|einstein|baseball|world's fair)\b/i;
+
+function histScore(text: string): number {
+  let s = 0;
+  if (MAINSTREAM.test(text)) s += 2;
+  if (WONK.test(text)) s -= 3;
+  if (text.length <= 110) s += 1; // shorter reads cleaner on the board
+  return s;
+}
+
 export async function historyFor(dateStr: string, tz = "UTC"): Promise<string | null> {
   const [, m, d] = dateStr.split("-").map(Number);
   try {
     const mm = String(m).padStart(2, "0"), dd = String(d).padStart(2, "0");
-    const r = await fetch(`https://en.wikipedia.org/api/rest_v1/feed/onthisday/selected/${mm}/${dd}`, {
+    const r = await fetch(`https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${mm}/${dd}`, {
       headers: { "User-Agent": "memoryboard/1.0 (bfish42@gmail.com)", Accept: "application/json" },
     });
     if (r.ok) {
       const data: any = await r.json();
-      // "selected" = editor-curated most-notable events (warmer, more
-      // recognizable than the raw "events" firehose). Same item shape.
-      let events = ((data.selected || []) as any[]).filter((e) => e && e.year && e.text);
-      const upbeat = events.filter((e) => !GRIM.test(String(e.text)));
-      const pool = upbeat.length ? upbeat : [];
-      if (pool.length) {
-        const e = pool[((epochDay(dateStr) % pool.length) + pool.length) % pool.length];
-        let text = String(e.text).trim().replace(/\s+/g, " ");
+      const cands = ((data.events || []) as any[])
+        .filter((e) => e && e.year && e.text && !GRIM.test(String(e.text)))
+        .map((e) => ({ year: e.year, text: String(e.text).trim().replace(/\s+/g, " ") }));
+      if (cands.length) {
+        // Pick among the most recognizable events; rotate deterministically by
+        // day so the same date can vary year to year.
+        const best = Math.max(...cands.map((c) => histScore(c.text)));
+        const top = cands.filter((c) => histScore(c.text) === best);
+        const e = top[((epochDay(dateStr) % top.length) + top.length) % top.length];
+        let text = e.text;
         if (text.length > 150) text = text.slice(0, 147).trimEnd() + "…";
         return `🤔 On this day in ${e.year}:\n\n${text}`;
       }
@@ -297,6 +312,7 @@ export function categoryOf(text: string): string {
   if (t.startsWith("🤣")) return "joke";
   if (t.startsWith("🤔")) return "onthisday";
   if (t.startsWith('"') || t.startsWith("“")) return "quote";
+  if (/⚾/.test(t) && /playoff/i.test(t)) return "playoffs";
   if (/⚾/.test(t)) return "dbacks";
   if (/🏈/.test(t)) return "seahawks";
   if (/^(❄|⛈|🌬|🌧|🔥|🥶)/u.test(t)) return "weather";
@@ -332,6 +348,55 @@ export async function dbacksTodayPost(today: string, tz: string): Promise<string
   if (result) return `⚾️ DBacks ${result} last night!`;
   if (game) return `⚾️ DBacks play today ${game}`;
   return null;
+}
+
+// ---------- MLB playoffs: one card with the day's games + networks ----------
+// Mascot emoji per team id (decoration; the team name always shows too). "" =
+// no clear/appropriate mascot, so just the name is used.
+const TEAM_EMOJI: Record<number, string> = {
+  108: "😇", 109: "🐍", 110: "🐦", 111: "🧦", 112: "🐻", 113: "🔴", 114: "🛡️",
+  115: "⛰️", 116: "🐅", 117: "🚀", 118: "👑", 119: "🔵", 120: "🦅", 121: "🍎",
+  133: "🐘", 134: "🏴‍☠️", 135: "🟤", 136: "⚓", 137: "🌉", 138: "🐦", 139: "🌊",
+  140: "🤠", 141: "🐦", 142: "⭐", 143: "🔔", 144: "", 145: "⬛", 146: "🐠",
+  147: "🎩", 158: "🍺",
+};
+// Postseason game types: F=Wild Card, D=Division Series, L=LCS, W=World Series.
+const POSTSEASON = new Set(["F", "D", "L", "W"]);
+
+function teamLabel(team: any): string {
+  const id = team?.team?.id;
+  const name = team?.team?.teamName || team?.team?.name || "?";
+  const e = id != null ? TEAM_EMOJI[id] : "";
+  return e ? `${e} ${name}` : name;
+}
+
+function networkOf(g: any): string {
+  const bc = (g.broadcasts || []) as any[];
+  const tv = bc.filter((b) => /tv/i.test(String(b.type || b.mediaType || "")));
+  const pick = tv.find((b) => b.isNational) || tv[0] || bc[0];
+  const n = pick && (pick.name || pick.callSign);
+  return n ? String(n) : "";
+}
+
+export async function playoffsTodayPost(today: string, tz: string): Promise<string | null> {
+  let games: any[] = [];
+  try {
+    const j: any = await (await fetch(`${MLB}/schedule?sportId=1&date=${today}&hydrate=team,broadcasts(all)`)).json();
+    for (const dd of j.dates || []) for (const g of dd.games || []) {
+      if (POSTSEASON.has(g.gameType)) games.push(g);
+    }
+  } catch { return null; }
+  if (!games.length) return null;
+  games.sort((a, b) => String(a.gameDate || "").localeCompare(String(b.gameDate || "")));
+  const lines = games.slice(0, 4).map((g) => {
+    const away = teamLabel(g.teams?.away);
+    const home = teamLabel(g.teams?.home);
+    const t = g.gameDate ? clock(g.gameDate, tz) : "";
+    const net = networkOf(g);
+    const tail = [t, net].filter(Boolean).join(" ");
+    return tail ? `${away} vs ${home} · ${tail}` : `${away} vs ${home}`;
+  });
+  return `⚾️ Playoff baseball today:\n\n${lines.join("\n")}`;
 }
 
 export async function seahawksTodayPost(today: string, tz: string): Promise<string | null> {
