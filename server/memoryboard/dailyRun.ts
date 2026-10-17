@@ -1,7 +1,8 @@
 import { login, postText, getScheduledMessages } from "./client";
 import {
   boardToday, addDays, dateLine, jokeFor, quoteFor, historyFor,
-  dbacksTodayPost, playoffsTodayPost, seahawksTodayPost, weatherTodayPost, categoryOf,
+  dbacksTodayPost, playoffsTodayPost, seahawksTodayPost, cfbSaturdayPost,
+  weatherTodayPost, categoryOf,
 } from "./content";
 
 export type RunResult = { today: string; posted: string[]; skipped: number; errors: string[] };
@@ -57,10 +58,11 @@ export async function dailyRun(tz: string): Promise<RunResult> {
   await once(dateLine(today));
   await once(jokeFor(today, recentJokes));
   await once(quoteFor(today, recentQuotes));
-  await once(await historyFor(today, tz));
+  await once(historyFor(today));
   await once(await dbacksTodayPost(today, tz));
   await once(await playoffsTodayPost(today, tz));
   await once(await seahawksTodayPost(today, tz));
+  await once(await cfbSaturdayPost(today, tz));
   await once(await weatherTodayPost(today));
 
   return { today, posted, skipped, errors };

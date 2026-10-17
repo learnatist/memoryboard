@@ -207,25 +207,57 @@ const QUOTES: [string, string][] = [
   ["Beauty is in the eye of the beholder.", "Proverb"],
 ];
 
-// ---------- on-this-day fallback bank (verified, upbeat) ----------
-// Primary source is Wikipedia (see historyFor); this covers the launch window
-// and serves as a graceful fallback if the API is unreachable.
-
-const HISTORY: Record<string, [string, string]> = {
-  "9-9": ["1776", "The Continental Congress officially adopted the name 'United States of America.'"],
-  "9-10": ["1846", "Elias Howe patented the first practical sewing machine."],
-  "9-11": ["1985", "Pete Rose broke Ty Cobb's record with his 4,192nd career hit."],
-  "9-12": ["1962", "President Kennedy gave his 'We choose to go to the Moon' speech."],
-  "9-13": ["1857", "Milton Hershey, founder of the Hershey chocolate company, was born."],
-  "9-14": ["1814", "Francis Scott Key wrote 'The Star-Spangled Banner.'"],
-  "9-15": ["1949", "'The Lone Ranger' premiered on television."],
-  "9-16": ["1620", "The Mayflower set sail from England for the New World."],
-  "9-17": ["1787", "The U.S. Constitution was signed in Philadelphia."],
-  "9-18": ["1851", "The New York Times published its very first edition."],
-  "9-19": ["1957", "'Leave It to Beaver' premiered on television."],
-  "9-20": ["1519", "Ferdinand Magellan set sail to circumnavigate the globe."],
-  "9-21": ["1937", "J.R.R. Tolkien's 'The Hobbit' was first published."],
-  "9-22": ["1862", "Lincoln issued the preliminary Emancipation Proclamation."],
+// ---------- on-this-day: major science milestones (curated, verified) ----------
+// One per month-day, chosen for broad recognizability. Days with no entry are
+// skipped (historyFor returns null) rather than filled with something obscure.
+// Every date below was fact-checked; keep that bar when adding entries.
+const SCIENCE: Record<string, [string, string]> = {
+  "1-1": ["1801", "Giuseppe Piazzi discovered Ceres, the first asteroid ever found."],
+  "1-3": ["2019", "China's Chang'e-4 became the first spacecraft to land on the far side of the Moon."],
+  "1-7": ["1610", "Galileo Galilei discovered the four largest moons of Jupiter."],
+  "1-24": ["1986", "Voyager 2 made the first flyby of the planet Uranus."],
+  "1-31": ["1958", "Explorer 1, the first U.S. satellite, discovered the Van Allen radiation belts."],
+  "2-11": ["2016", "Scientists announced the first direct detection of gravitational waves."],
+  "2-14": ["1990", "Voyager 1 took the 'Pale Blue Dot' photograph of Earth from billions of miles away."],
+  "2-18": ["1930", "Clyde Tombaugh discovered Pluto."],
+  "2-20": ["1962", "John Glenn became the first American to orbit the Earth."],
+  "3-10": ["1876", "Alexander Graham Bell made the first telephone call."],
+  "3-13": ["1781", "William Herschel discovered the planet Uranus."],
+  "3-16": ["1926", "Robert Goddard launched the world's first liquid-fueled rocket."],
+  "4-10": ["2019", "Astronomers released the first photograph ever taken of a black hole."],
+  "4-12": ["1961", "Yuri Gagarin became the first human to travel into space."],
+  "4-24": ["1990", "The Hubble Space Telescope was launched into orbit."],
+  "4-25": ["1953", "Watson and Crick revealed the double-helix structure of DNA."],
+  "5-5": ["1961", "Alan Shepard became the first American in space."],
+  "5-14": ["1796", "Edward Jenner performed the first vaccination, against smallpox."],
+  "5-29": ["1919", "An eclipse expedition confirmed Einstein's theory of general relativity."],
+  "6-16": ["1963", "Valentina Tereshkova became the first woman in space."],
+  "6-18": ["1983", "Sally Ride became the first American woman in space."],
+  "6-26": ["2000", "Scientists announced the first draft of the human genome."],
+  "7-4": ["2012", "Physicists at CERN announced the discovery of the Higgs boson."],
+  "7-14": ["2015", "NASA's New Horizons made the first close flyby of Pluto."],
+  "7-16": ["1969", "Apollo 11 launched, carrying the first astronauts to the Moon."],
+  "7-20": ["1969", "Apollo 11 landed the first humans on the Moon."],
+  "8-5": ["2012", "NASA's Curiosity rover landed on Mars."],
+  "8-6": ["1991", "Tim Berners-Lee published the first website, launching the World Wide Web."],
+  "8-25": ["1989", "Voyager 2 made the first flyby of the planet Neptune."],
+  "9-5": ["1977", "NASA launched Voyager 1, now the most distant human-made object."],
+  "9-10": ["2008", "The Large Hadron Collider, the world's largest particle accelerator, was switched on."],
+  "9-12": ["1958", "Jack Kilby demonstrated the first integrated circuit, the basis of modern electronics."],
+  "9-28": ["1928", "Alexander Fleming discovered penicillin."],
+  "10-4": ["1957", "The Soviet Union launched Sputnik 1, the first artificial satellite."],
+  "10-14": ["1947", "Chuck Yeager became the first pilot to fly faster than the speed of sound."],
+  "10-16": ["1846", "Surgery under ether anesthesia was first demonstrated publicly, in Boston."],
+  "10-29": ["1969", "The first message was sent over ARPANET, the forerunner of the internet."],
+  "11-8": ["1895", "Wilhelm Röntgen discovered X-rays."],
+  "11-13": ["1971", "Mariner 9 became the first spacecraft to orbit another planet, Mars."],
+  "11-20": ["1998", "The first piece of the International Space Station was launched into orbit."],
+  "11-24": ["1859", "Charles Darwin published 'On the Origin of Species.'"],
+  "12-2": ["1942", "Enrico Fermi produced the first controlled nuclear chain reaction."],
+  "12-14": ["1900", "Max Planck introduced quantum theory."],
+  "12-17": ["1903", "The Wright brothers made the first powered airplane flight."],
+  "12-21": ["1968", "Apollo 8 launched, carrying the first humans to orbit the Moon."],
+  "12-27": ["1831", "Charles Darwin set sail on HMS Beagle, the voyage behind his theory of evolution."],
 };
 
 // ---------- selectors (avoid recently-posted content) ----------
@@ -249,50 +281,14 @@ export function quoteFor(dateStr: string, avoid?: Set<string>): string {
   return pick(QUOTES, dateStr, (q, who) => `"${q}"\n\n— ${who}`, avoid);
 }
 
-// ---------- on this day (Wikipedia primary, filtered for tone; bank fallback) ----------
+// ---------- on this day: major science milestone for the date, or nothing ----------
+// Looks up the curated SCIENCE bank. If the day has no entry, returns null and
+// the daily run simply skips the card that day (per "skip if nothing notable").
 
-const GRIM = /\b(kill|killed|dead|death|died|dies|massacre|slaughter|bomb|bombed|bombing|war|battle|attack|assassinat|shot|murder|execut|genocide|terror|hijack|crash|disaster|earthquake|hurricane|flood|famine|plague|epidemic|pandemic|riot|invasion|invaded|nazi|holocaust|slave|slaver|shooting|explosion|wreck|sank|sink|drown|tragedy|victim|casualt)/i;
-
-// Recognizability scoring: prefer mainstream, broadly-known events over the
-// obscure political/administrative entries the raw feed is full of.
-const WONK = /\b(treaty|act of|parliament|diet of|duchy|province|annex|by-?election|synod|papal bull|edict|dynast|principalit|referendum|constituen|legislat|ratif|archduke|holy roman|caliph|sultanate|viceroy|monarch|succession|proclaimed (king|emperor)|accession|abdicat|regent)\b/i;
-const MAINSTREAM = /\b(first|invent|discover|found(ed|s)?|patent|premier|debut|released|opened|open(s|ed)|record|champion|world series|super bowl|olympic|moon|space|satellite|rocket|flight|flew|president|signed into law|publish|born|crowned|vaccine|telephone|telegraph|automobile|airplane|television|radio|computer|internet|bridge|skyscraper|statue|national park|wright|disney|beatles|elvis|lincoln|washington|franklin|edison|einstein|baseball|world's fair)\b/i;
-
-function histScore(text: string): number {
-  let s = 0;
-  if (MAINSTREAM.test(text)) s += 2;
-  if (WONK.test(text)) s -= 3;
-  if (text.length <= 110) s += 1; // shorter reads cleaner on the board
-  return s;
-}
-
-export async function historyFor(dateStr: string, tz = "UTC"): Promise<string | null> {
+export function historyFor(dateStr: string): string | null {
   const [, m, d] = dateStr.split("-").map(Number);
-  try {
-    const mm = String(m).padStart(2, "0"), dd = String(d).padStart(2, "0");
-    const r = await fetch(`https://en.wikipedia.org/api/rest_v1/feed/onthisday/events/${mm}/${dd}`, {
-      headers: { "User-Agent": "memoryboard/1.0 (bfish42@gmail.com)", Accept: "application/json" },
-    });
-    if (r.ok) {
-      const data: any = await r.json();
-      const cands = ((data.events || []) as any[])
-        .filter((e) => e && e.year && e.text && !GRIM.test(String(e.text)))
-        .map((e) => ({ year: e.year, text: String(e.text).trim().replace(/\s+/g, " ") }));
-      if (cands.length) {
-        // Pick among the most recognizable events; rotate deterministically by
-        // day so the same date can vary year to year.
-        const best = Math.max(...cands.map((c) => histScore(c.text)));
-        const top = cands.filter((c) => histScore(c.text) === best);
-        const e = top[((epochDay(dateStr) % top.length) + top.length) % top.length];
-        let text = e.text;
-        if (text.length > 150) text = text.slice(0, 147).trimEnd() + "…";
-        return `🤔 On this day in ${e.year}:\n\n${text}`;
-      }
-    }
-  } catch { /* fall through to bank */ }
-  const item = HISTORY[`${m}-${d}`];
-  if (item) return `🤔 On this day in ${item[0]}:\n\n${item[1]}`;
-  return null;
+  const item = SCIENCE[`${m}-${d}`];
+  return item ? `🤔 On this day in ${item[0]}:\n\n${item[1]}` : null;
 }
 
 export function dateLine(dateStr: string): string {
@@ -314,6 +310,7 @@ export function categoryOf(text: string): string {
   if (t.startsWith('"') || t.startsWith("“")) return "quote";
   if (/⚾/.test(t) && /playoff/i.test(t)) return "playoffs";
   if (/⚾/.test(t)) return "dbacks";
+  if (/🏈/.test(t) && /college/i.test(t)) return "cfb";
   if (/🏈/.test(t)) return "seahawks";
   if (/^(❄|⛈|🌬|🌧|🔥|🥶)/u.test(t)) return "weather";
   return "";
@@ -448,6 +445,81 @@ export async function seahawksTodayPost(today: string, tz: string): Promise<stri
   if (result) return `🏈 Seahawks ${result} last night!`;
   if (game) return `🏈 Seahawks play today ${game}`;
   return null;
+}
+
+// ---------- college football: the weekend's biggest Saturday games ----------
+// Shows the coming Saturday's top ranked matchups (time + national network).
+// Appears Thursday–Saturday of game week; off the rest of the week and in the
+// offseason (when ESPN returns no FBS games for that Saturday -> null).
+const ESPN_CFB = "https://site.api.espn.com/apis/site/v2/sports/football/college-football/scoreboard";
+
+// The date (YYYY-MM-DD) of the Saturday on or after `dateStr`, and how many
+// days away it is (0 = today is Saturday).
+function comingSaturday(dateStr: string): { date: string; daysAway: number } {
+  const dow = new Date(`${dateStr}T12:00:00Z`).getUTCDay(); // 0=Sun..6=Sat
+  const daysAway = (6 - dow + 7) % 7;
+  return { date: addDays(dateStr, daysAway), daysAway };
+}
+
+function cfbTeam(c: any): { name: string; rank: number } {
+  const t = c?.team || {};
+  const name = t.location || t.shortDisplayName || t.name || t.displayName || "?";
+  const r = Number(c?.curatedRank?.current);
+  // ESPN uses 99 for unranked; treat anything outside the poll as unranked.
+  return { name, rank: r >= 1 && r <= 25 ? r : 99 };
+}
+
+function cfbNetwork(comp: any): string {
+  const bc = (comp?.broadcasts || []) as any[];
+  const national = bc.find((b) => /national/i.test(String(b.market || ""))) || bc[0];
+  const fromBc = national && Array.isArray(national.names) ? national.names[0] : "";
+  if (fromBc) return String(fromBc);
+  const geo = (comp?.geoBroadcasts || []) as any[];
+  const g = geo.find((x) => /national/i.test(String(x.market?.type || ""))) || geo[0];
+  return g?.media?.shortName ? String(g.media.shortName) : "";
+}
+
+export async function cfbSaturdayPost(today: string, tz: string): Promise<string | null> {
+  const sat = comingSaturday(today);
+  // Only run it in the Thursday–Saturday window of game week.
+  if (sat.daysAway > 2) return null;
+
+  let events: any[] = [];
+  try {
+    const ymd = sat.date.replace(/-/g, "");
+    const j: any = await (await fetch(`${ESPN_CFB}?dates=${ymd}&groups=80&limit=400`)).json();
+    events = j.events || [];
+  } catch { return null; }
+
+  type G = { rankSum: number; bothRanked: boolean; line: string };
+  const games: G[] = [];
+  for (const e of events) {
+    const comp = e.competitions?.[0];
+    const cs = (comp?.competitors || []) as any[];
+    const home = cs.find((c) => c.homeAway === "home");
+    const away = cs.find((c) => c.homeAway === "away");
+    if (!home || !away) continue;
+    const H = cfbTeam(home), A = cfbTeam(away);
+    // A "top game" needs at least one ranked team; skip the rest.
+    if (H.rank === 99 && A.rank === 99) continue;
+    const tag = (x: { name: string; rank: number }) => (x.rank <= 25 ? `#${x.rank} ${x.name}` : x.name);
+    const t = e.date ? clock(e.date, tz) : "";
+    const net = cfbNetwork(comp);
+    const tail = [t, net].filter(Boolean).join(" ");
+    const line = tail ? `${tag(A)} vs ${tag(H)} · ${tail}` : `${tag(A)} vs ${tag(H)}`;
+    games.push({ rankSum: A.rank + H.rank, bothRanked: A.rank <= 25 && H.rank <= 25, line });
+  }
+  if (!games.length) return null;
+
+  // Biggest first: both-ranked games win, then lowest combined ranking.
+  games.sort((a, b) => Number(b.bothRanked) - Number(a.bothRanked) || a.rankSum - b.rankSum);
+
+  const header = sat.daysAway === 0 ? "🏈 College football today:" : "🏈 College football Saturday:";
+  // Prefer 3 games, but only if the card stays short enough to read easily on
+  // the board; otherwise show 2. (Board text length ~= string length.)
+  const three = `${header}\n\n${games.slice(0, 3).map((g) => g.line).join("\n")}`;
+  if (games.length >= 3 && three.length <= 140) return three;
+  return `${header}\n\n${games.slice(0, 2).map((g) => g.line).join("\n")}`;
 }
 
 // ---------- weather (drama only, at most one line) ----------
